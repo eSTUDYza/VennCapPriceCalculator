@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Course Price Calculator</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background-color: #f4f4f9;
+        margin: 0;
+        padding: 20px;
+        color: #333;
+    }
+    
+    h2 {
+        color: #007bff;
+        text-align: center;
+    }
+    
+    .container {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 20px;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    
+    label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+    }
+    
+    input[type="number"], select {
+        width: calc(100% - 22px);
+        padding: 10px;
+        margin-bottom: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-sizing: border-box;
+    }
+    
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+    }
+    
+    table, th, td {
+        border: 1px solid #ddd;
+        padding: 8px;
+    }
+    
+    th {
+        background-color: #f2f2f2;
+        text-align: left;
+    }
+    
+    td {
+        text-align: right;
+    }
+    
+    td:first-child, th:first-child {
+        text-align: left;
+    }
+
+    button {
+        background-color: #007bff;
+        color: #fff;
+        border: none;
+        padding: 10px 15px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        margin-right: 10px;
+    }
+    
+    button:hover {
+        background-color: #0056b3;
+    }
+    
+    button.remove {
+        background-color: #dc3545;
+    }
+    
+    button.remove:hover {
+        background-color: #c82333;
+    }
+    
+    button.agree {
+        background-color: #dc3545; /* Red color for the Continue without Mentoring button */
+    }
+
+    button.agree:hover {
+        background-color: #c82333; /* Darker red on hover */
+    }
+
+    #requestQuote {
+        display: none;
+    }
+
+    img {
+        max-width: 100%;
+        height: auto;
+    }
+
+    tfoot td {
+        font-weight: bold;
+    }
+
+    .alert {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        padding: 20px;
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        z-index: 1000;
+    }
+
+    .alert button {
+        margin: 0 10px;
+    }
+
+</style>
+</head>
+<body>
+
+<div class="container">
+
+    <img src="Test.png">
+
+    <h2>Course Price Calculator</h2>
+
+    <table id="courseTable">
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Quantity</th>
+                <th>Unit Price (R)</th>
+                <th>Total (R)</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Starting with no pre-filled course entries -->
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="3"><strong>Overall Total (R)</strong></td>
+                <td id="overallTotal">R0</td>
+                <td></td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <button type="button" onclick="addCourseRow()">Add More Items</button><br><br>
+
+    <div id="priceBreakdown"></div>
+
+    <label for="companyName">Company Name:</label>
+    <input type="text" id="companyName" required><br><br>
+
+    <label for="requestedBy">Requested by (Your Name):</label>
+    <input type="text" id="requestedBy" required><br><br>
+    
+    <button id="requestQuote" onclick="requestQuote()">Request Formal Quote</button>
+</div>
+
+<div id="alert" class="alert">
+    <p>You have selected item(s) related to mentoring but did not include the Individual Mentoring Item. Please confirm whether you want to add it now or proceed without it.</p>
+    <button onclick="addMentoring()">Add Mentoring</button>
+    <button class="agree" onclick="agreeWithoutMentoring()">Continue without Mentoring</button>
+</div>
+
+<script>
+    const courses = {
+        "Select Item":0,
+        "Youth Development Programme": 18000,
+        "Graduate Development Programme": 24000,
+        "All other Internship Programmes": 28000,
+        "Individual Mentoring (Online 1 Hour per month)": 9000,
+        "Single Course (One user Per Course)": 1150,
+        "5 Courses (Min 100 licenses)": 1200,
+        "10 Courses (Min 100 licenses)": 1500,
+        "15 Courses (Min 100 licenses)": 1800,
+        "20 Courses (Min 100 licenses)": 2000,
+        "CK Connect (Min 100 licenses)": 1050,
+        "Recruitment per Individual": 6000,
+        "Stipend per month": 0,
+        "Payroll Admin Fees": 0
+        // Default set to 0, user will adjust this
+    };
+
+    const mentoringRelatedCourses = [
+        "Youth Development Programme",
+        "Graduate Development Programme",
+        "All other Internship Programmes"
+    ];
+
+    const mentoringCourse = "Individual Mentoring (Online 1 Hour per month)";
+
+    const min100Courses = [
+        "5 Courses (Min 100 licenses)",
+        "10 Courses (Min 100 licenses)",
+        "15 Courses (Min 100 licenses)",
+        "20 Courses (Min 100 licenses)",
+        "CK Connect (Min 100 licenses)"
+    ];
+
+    let hasAgreedWithoutMentoring = false;
+
+    function addCourseRow() {
+        const tableBody = document.querySelector('#courseTable tbody');
+        const newRow = document.createElement('tr');
+
+        newRow.innerHTML = `
+            <td>
+                <select class="course" onchange="updateUnitPrice(this)">
+                    ${Object.keys(courses).map(course => `<option value="${course}">${course}</option>`).join('')}
+                </select>
+            </td>
+            <td><input type="number" class="quantity" min="1" value="1" required></td>
+            <td class="unit-price">0</td>
+            <td class="total-price">0</td>
+            <td><button type="button" class="remove" onclick="removeCourseRow(this)">Remove</button></td>
+        `;
+
+        tableBody.appendChild(newRow);
+        updateUnitPrice(newRow.querySelector('.course')); // Initialize unit price for the first item
+    }
+
+    function removeCourseRow(button) {
+        button.parentElement.parentElement.remove();
+        calculatePrice();
+    }
+
+    function updateUnitPrice(selectElement) {
+        const selectedCourse = selectElement.value;
+        const unitPriceCell = selectElement.parentElement.parentElement.querySelector('.unit-price');
+        const quantityInput = selectElement.parentElement.parentElement.querySelector('.quantity');
+
+        if (selectedCourse === "Stipend per month") {
+            const userPrice = prompt("Please enter the price for Stiped");
+            courses[selectedCourse] = parseFloat(userPrice) || 0;
+        }
+
+        unitPriceCell.textContent = formatNumber(courses[selectedCourse]);
+
+        // Automatically set the quantity to 100 if the selected course requires a minimum of 100 licenses
+        if (min100Courses.includes(selectedCourse)) {
+            quantityInput.min = 100;
+            quantityInput.value = 100;
+        } else {
+            quantityInput.min = 1;
+        }
+
+        calculatePrice(); // Recalculate the total price when the unit price changes
+    }
+
+    function formatNumber(number) {
+        return number.toLocaleString('en-ZA'); // Format number with thousand separators
+    }
+
+    function calculatePrice() {
+        const rows = document.querySelectorAll('#courseTable tbody tr');
+        let totalPrice = 0;
+        let stipendTotal =  0;// Remove commas for calculation
+
+        rows.forEach(row => {
+            const quantity = parseFloat(row.querySelector('.quantity').value);
+            let unitPrice = parseFloat(row.querySelector('.unit-price').textContent.replace(/,/g, ''));
+            
+
+            const course = row.querySelector('.course').value;
+                    // If "Stipend per month" is selected, multiply unit price by 12 (for 12 months)
+            if (course == "Stipend per month") {
+                unitPrice = unitPrice * 12; // Multiply the monthly stipend by 12 to get yearly cost
+                stipendTotal += unitPrice * quantity; // Add to the stipend total
+            }// Add to the stipend total
+
+            if (course === "Payroll Admin Fees") {
+                unitPrice = stipendTotal * 0.04; 
+                row.querySelector('.unit-price').textContent = formatNumber(unitPrice);// 4% of the total stipend
+            }
+
+            const total = quantity * unitPrice;
+            row.querySelector('.total-price').textContent = formatNumber(total);
+            totalPrice += total;
+
+            
+        });
+
+        document.getElementById('overallTotal').textContent = `R${formatNumber(totalPrice)}`;
+        document.getElementById('requestQuote').style.display = totalPrice > 0 ? 'block' : 'none';
+    }
+
+    function checkMentoringSelection(selectedCourses) {
+        const mentoringSelected = selectedCourses.includes(mentoringCourse);
+        const needsMentoring = mentoringRelatedCourses.some(course => selectedCourses.includes(course));
+
+        if (needsMentoring && !mentoringSelected && !hasAgreedWithoutMentoring) {
+            document.getElementById('alert').style.display = 'block';
+            return false; // Prevent further action
+        }
+        return true; // Allow further action
+    }
+    function requestQuote() {
+    const rows = document.querySelectorAll('#courseTable tbody tr');
+    const companyName = document.getElementById('companyName').value;
+    const requestedBy = document.getElementById('requestedBy').value;
+    let emailBody = `Company Name: ${companyName}\nRequested by: ${requestedBy}\n\nSelected Items:\n`;
+
+    let totalPrice = 0;
+    let stipendTotal = 0; // Define stipendTotal here
+    let selectedCourses = [];
+
+    rows.forEach(row => {
+        const quantity = parseFloat(row.querySelector('.quantity').value);
+        let unitPrice = parseFloat(row.querySelector('.unit-price').textContent.replace(/,/g, ''));
+        
+        const course = row.querySelector('.course').value;
+
+        // If "Stipend per month" is selected, multiply unit price by 12 (for 12 months)
+        if (course === "Stipend per month") {
+            unitPrice *= 12; // Multiply the monthly stipend by 12 to get yearly cost
+            stipendTotal += unitPrice * quantity; // Update stipendTotal
+        }
+
+        // If "Payroll Admin Fees" is selected, calculate as 4% of the stipend total
+        if (course === "Payroll Admin Fees") {
+            unitPrice = stipendTotal * 0.04; 
+            row.querySelector('.unit-price').textContent = formatNumber(unitPrice); // Update unit price display
+        }
+
+        const total = quantity * unitPrice;
+        row.querySelector('.total-price').textContent = formatNumber(total);
+        totalPrice += total;
+
+        selectedCourses.push(course); // Collect selected courses
+
+        emailBody += `${course}: ${quantity} x R${formatNumber(unitPrice)} = R${formatNumber(total)}\n`;
+    });
+
+    if (!checkMentoringSelection(selectedCourses)) {
+        return; // Exit the function if the check fails
+    }
+
+    emailBody += `\nTotal Price: R${formatNumber(totalPrice)}\n\nAdd Additional notes (Example EAP Targets)`;
+
+    const subject = `Formal Quote Request from ${requestedBy} on behalf of ${companyName}`;
+    const mailtoLink = `mailto:hano@estudysa.co.za?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(emailBody)}`;
+    window.location.href = mailtoLink;
+}
+
+
+
+    function addMentoring() {
+        document.getElementById('alert').style.display = 'none';
+        const tableBody = document.querySelector('#courseTable tbody');
+        const newRow = document.createElement('tr');
+
+        newRow.innerHTML = `
+            <td>
+                <select class="course" onchange="updateUnitPrice(this)">
+                    <option value="${mentoringCourse}">${mentoringCourse}</option>
+                </select>
+            </td>
+            <td><input type="number" class="quantity" min="1" value="1" required></td>
+            <td class="unit-price">${formatNumber(courses[mentoringCourse])}</td>
+            <td class="total-price">${formatNumber(courses[mentoringCourse])}</td>
+            <td><button type="button" class="remove" onclick="removeCourseRow(this)">Remove</button></td>
+        `;
+
+        tableBody.appendChild(newRow);
+        calculatePrice();
+    }
+
+    function agreeWithoutMentoring() {
+        document.getElementById('alert').style.display = 'none';
+        hasAgreedWithoutMentoring = true; // Mark that user agreed to proceed without mentoring
+    }
+
+    // Auto-update the total when the quantity changes
+    document.addEventListener('input', (event) => {
+        if (event.target.classList.contains('quantity')) {
+            calculatePrice();
+        }
+    });
+
+</script>
+
+</body>
+</html>
